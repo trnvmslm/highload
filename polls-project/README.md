@@ -120,7 +120,7 @@ sequenceDiagram
     S-->>C: OK, ACCEPTED
 ```
 
-`tests/test_clients.py` starts servers that reject 10 % of requests: all 100 votes still succeed
+`tests/test_clients.py` starts servers that reject every third request: all 100 votes still succeed
 for both protocols and each vote is stored once.
 
 ## 6. How to run
@@ -133,6 +133,7 @@ python -m pytest
 python -m polls_service.benchmark --threads=1,16
 python -m polls_service.benchmark --threads=16 --failure-rate=0.1 --output=results-faults
 python -m polls_service.server_app
+python -m polls_service.demo
 ```
 
 1. Install dependencies.
@@ -140,6 +141,7 @@ python -m polls_service.server_app
 3. Benchmark with 1 and 16 concurrent clients, 2000 requests per run.
 4. Benchmark with 10 % injected failures to see retries.
 5. Run only the servers (gRPC :50051, REST :8080).
+6. In a second terminal, while the servers are running: call every gRPC method once and print the answers.
 
 The benchmark writes `benchmark.md`, `latency.csv` and `payload.csv` to the output directory.
 
@@ -161,35 +163,33 @@ python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. polls_servic
 
 ## 8. Results
 
-Measured on Linux, Python 3.13, 2 CPU cores, 2000 requests per run, 500 warm-up requests.
-
 ### Latency, no failures
 
 | Protocol | Operation | Threads | p50 ms | p95 ms | p99 ms | Throughput rps | Errors |
 |---|---|---|---|---|---|---|---|
-| gRPC | CreatePoll | 1 | 0.411 | 0.685 | 0.766 | 2167 | 0 |
-| gRPC | CastVote | 1 | 0.345 | 0.544 | 0.682 | 2624 | 0 |
-| gRPC | GetResults | 1 | 0.472 | 0.721 | 0.952 | 1997 | 0 |
-| REST/JSON | CreatePoll | 1 | 0.917 | 1.336 | 1.796 | 1051 | 0 |
-| REST/JSON | CastVote | 1 | 0.727 | 0.988 | 1.170 | 1321 | 0 |
-| REST/JSON | GetResults | 1 | 0.881 | 1.151 | 1.349 | 1112 | 0 |
-| gRPC | CreatePoll | 16 | 5.248 | 8.006 | 9.361 | 3039 | 0 |
-| gRPC | CastVote | 16 | 5.003 | 7.501 | 9.269 | 3084 | 0 |
-| gRPC | GetResults | 16 | 5.161 | 8.887 | 10.652 | 3003 | 0 |
-| REST/JSON | CreatePoll | 16 | 13.685 | 32.790 | 42.712 | 1020 | 0 |
-| REST/JSON | CastVote | 16 | 13.065 | 31.138 | 42.867 | 1094 | 0 |
-| REST/JSON | GetResults | 16 | 12.264 | 31.693 | 45.490 | 1112 | 0 |
+| gRPC | CreatePoll | 1 | 0.823 | 0.959 | 1.057 | 1186 | 0 |
+| gRPC | CastVote | 1 | 0.822 | 1.022 | 1.163 | 1176 | 0 |
+| gRPC | GetResults | 1 | 0.847 | 0.984 | 1.099 | 1154 | 0 |
+| REST/JSON | CreatePoll | 1 | 1.787 | 2.275 | 2.584 | 538 | 0 |
+| REST/JSON | CastVote | 1 | 1.581 | 1.846 | 2.080 | 622 | 0 |
+| REST/JSON | GetResults | 1 | 1.600 | 1.836 | 2.004 | 615 | 0 |
+| gRPC | CreatePoll | 16 | 7.213 | 7.812 | 8.211 | 2200 | 0 |
+| gRPC | CastVote | 16 | 6.825 | 7.340 | 7.627 | 2335 | 0 |
+| gRPC | GetResults | 16 | 7.560 | 8.119 | 8.407 | 2107 | 0 |
+| REST/JSON | CreatePoll | 16 | 21.611 | 33.127 | 39.768 | 712 | 0 |
+| REST/JSON | CastVote | 16 | 20.658 | 32.412 | 37.138 | 744 | 0 |
+| REST/JSON | GetResults | 16 | 20.116 | 32.051 | 39.156 | 755 | 0 |
 
 ### Latency, 10 % injected failures, 16 threads
 
 | Protocol | Operation | p50 ms | p95 ms | p99 ms | Throughput rps | Errors |
 |---|---|---|---|---|---|---|
-| gRPC | CreatePoll | 0.976 | 103.077 | 106.363 | 899 | 0 |
-| gRPC | CastVote | 0.781 | 102.666 | 106.244 | 1226 | 0 |
-| gRPC | GetResults | 0.848 | 102.774 | 285.306 | 1008 | 0 |
-| REST/JSON | CreatePoll | 9.320 | 75.256 | 138.764 | 902 | 0 |
-| REST/JSON | CastVote | 8.938 | 76.580 | 119.395 | 873 | 1 |
-| REST/JSON | GetResults | 8.581 | 77.908 | 131.232 | 853 | 0 |
+| gRPC | CreatePoll | 21.951 | 155.569 | 351.006 | 395 | 1 |
+| gRPC | CastVote | 22.193 | 161.937 | 227.372 | 376 | 1 |
+| gRPC | GetResults | 25.255 | 163.831 | 359.091 | 363 | 0 |
+| REST/JSON | CreatePoll | 21.160 | 98.394 | 146.589 | 524 | 1 |
+| REST/JSON | CastVote | 18.724 | 84.850 | 130.664 | 605 | 0 |
+| REST/JSON | GetResults | 15.115 | 94.256 | 153.931 | 613 | 1 |
 
 ### Payload size (body bytes)
 
@@ -203,16 +203,3 @@ Measured on Linux, Python 3.13, 2 CPU cores, 2000 requests per run, 500 warm-up 
 - Each gRPC message adds a 5-byte length prefix on the wire.
 - Headers are not counted: HTTP/2 compresses them (HPACK), HTTP/1.1 resends them as text every time.
 
-### Conclusions
-
-1. **Latency.** With one client gRPC is about 2× faster at the median (0.35–0.47 ms vs 0.73–0.92 ms).
-   With 16 concurrent clients the gap grows: gRPC p99 stays near 10 ms, REST p99 reaches 43–45 ms.
-   HTTP/2 sends all requests over one multiplexed connection, while HTTP/1.1 needs a connection per
-   concurrent request.
-2. **Throughput.** gRPC handles about 3× more requests per second under concurrency (≈3000 vs ≈1100 rps).
-3. **Payload.** Protobuf responses are 65–90 % smaller than JSON, and requests are 30–70 % smaller.
-4. **Retries.** With 10 % of requests rejected, both clients finish with zero or almost zero errors.
-   The price is tail latency: p95/p99 grow by the backoff time (~100 ms). The single REST error is a
-   request that failed all 4 attempts (probability 0.1⁴).
-5. Both protocols meet the SIS #1 goal of p99 < 100 ms without failures; gRPC does it with a much
-   larger margin, which is why it was chosen for the internal vote and results calls.
