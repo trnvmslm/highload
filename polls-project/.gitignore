@@ -1,7 +1,9 @@
-target/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
 results/
 results-*/
 .idea/
-*.iml
 .vscode/
-dependency-reduced-pom.xml
